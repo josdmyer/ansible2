@@ -1,0 +1,8 @@
+---
+ansible_ssh_user: zowner
+latest_java_path: '/opt/java/hotspot/8/64_bit/'
+latest_weblogic_path: '/o/w//'
+current_java: 'jdk1.8.0_212/'
+latest_java: 'jdk1.8.0_221/'
+current_weblogic: 'wl1213_190620/wlserver'
+latest_weblogic: 'wl1213_190716/wlserver'
