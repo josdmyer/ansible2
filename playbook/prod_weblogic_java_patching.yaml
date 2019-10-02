@@ -1,0 +1,169 @@
+#################################################################
+# Description:  Playbook to check for java version, backup    ###
+#               file, edit file, kill service, and start      ###
+#               service                                       ###
+# Enviroment:   Dev & Test                                    ###
+# Version:      1                                             ###
+# Filename:     weblogic_java_patching.yaml                   ###
+#################################################################
+
+
+# Comment out this section if using test_web.yaml to call this play book
+# start
+---
+- hosts: prod 
+#  vars:
+  tasks:
+# end of comment section
+
+# Check pre-requirements of java and weblogic is installed
+    - name: Check Latest WebLogic Exists
+      stat:
+        path: /opt/weblogic/{{ latest_weblogic }}
+      register: weblogic_file_details
+
+    - name: Check Latest Java Exists
+      stat:
+        path: '{{ latest_java_path }}{{ latest_java }}'
+      register: java_file_details
+
+    - debug:
+        msg: "Latest WebLogic Pre-Requirements Met"
+      when: weblogic_file_details.stat.exists and weblogic_file_details.stat.isdir == true
+
+    - debug:
+        msg: "Latest Java Pre-Requirements Met"
+      when: java_file_details.stat.exists and java_file_details.stat.isdir == true
+
+    - debug:
+        msg: "Latest WebLogic Doesn't Exist!!!"
+      when: weblogic_file_details.stat.exists == false 
+
+    - debug:
+        msg: "Latest Java Doesn't Exist!!!"
+      when: java_file_details.stat.exists == false 
+
+# Make Backups of files that will be changed if new java version number is not present in file
+    - name: get time
+      shell: date +%Y%m%d-%H%M%S
+      register: backuptime
+
+    - name: Backup Bash Profile
+      copy:
+        src: /o/y/z/.bash_profile
+        dest: /o/y/z/.bash_profile_{{backuptime.stdout}}
+        remote_src: yes
+        owner: zowner
+        group: zowner
+        mode: 0755
+      when: java_file_details.stat.exists
+
+    - name: Backup Derby
+      copy:
+        src: /o/y/z/scripts/start_derby.sh
+        dest: /o/y/z/scripts/start_derby.sh_{{backuptime.stdout}}
+        remote_src: yes
+        owner: zowner
+        group: zowner
+        mode: 0755
+      when: java_file_details.stat.exists
+
+    - name: Backup setDomainEnv.sh due for Java Version
+      copy:
+        src: /o/y/z/domain/{{ zowner_DOMAIN}}/bin/setDomainEnv.sh
+        dest: /o/y/z/domain/{{zowner_DOMAIN}}/bin/setDomainEnv.sh_{{backuptime.stdout}}
+        remote_src: yes
+        owner: zowner
+        group: zowner
+        mode: 0755
+      when: java_file_details.stat.exists
+
+    - name: Backup setDomainEnv.sh due for WebLogic Version
+      copy:
+        src: /o/y/z/domain/{{ zowner_DOMAIN}}/bin/setDomainEnv.sh
+        dest: /o/y/z/domain/{{zowner_DOMAIN}}/bin/setDomainEnv.sh_{{backuptime.stdout}}
+        remote_src: yes
+        owner: zowner
+        group: zowner
+        mode: 0755
+      when: weblogic_file_details.stat.exists
+
+    - name: Backup /etc/init.d/derby
+      copy:
+        src: /etc/init.d/derby
+        dest: /etc/init.d/derby_{{backuptime.stdout}}
+        remote_src: yes
+        owner: root
+        group: root
+        mode: 0755
+      when: java_file_details.stat.exists
+
+# Change Java version in: .bash_profile, start_dersy.sh, and setDomainEnv.sh
+# Change WebLogic version in setDomainEnv.sh
+# Env:  Development & Testing
+
+    - name: Edit Java Version in Derby
+      replace:
+        path: /o/y/z/scripts/start_derby.sh
+        regexp: '{{ current_java }}'
+        replace: '{{ latest_java }}'
+      when: java_file_details.stat.exists
+
+    - name: Edit setDomainEnv.sh WL_HOME
+      replace:
+        path: /o/y/z/domain/{{ zowner_DOMAIN}}//bin/setDomainEnv.sh
+        regexp: '{{ current_weblogic }}'
+        replace: '{{ latest_weblogic }}'
+      when: weblogic_file_details.stat.exists
+
+    - name: Edit setDomainEnv.sh Java Version
+      replace:
+        path: /o/y/z/domain/{{ zowner_DOMAIN}}//bin/setDomainEnv.sh
+        regexp: '{{ current_java }}'
+        replace: '{{ latest_java }}'
+      when: java_file_details.stat.exists
+
+    - name: Edit Bash Profile Java Version
+      replace:
+        path: /o/y/z/.bash_profile
+        regexp: '{{ current_java }}'
+        replace: '{{ latest_java }}'
+      when: java_file_details.stat.exists
+
+    - name: Edit /etc/init.d/derby java version
+      replace:
+        path: /etc/init.d/derby
+        regexp: '{{ current_java }}'
+        replace: '{{ latest_java }}'
+      when: java_file_details.stat.exists
+
+# Kill Derby
+    - name: Kill Derby
+      shell: "/etc/init.d/derby stop"
+      async: 10
+      poll: 0
+
+# Kill WebLogic
+    - name: kill weblogic
+      shell: "/etc/init.d/weblogic stop"
+      async: 10
+      poll: 0
+
+# Start Derby
+#    - name: start derby
+#      shell: "/etc/init.d/derby start"
+#      async: 10
+#      poll: 0
+
+# Start WebLogic
+#    - name: start weblogic
+#      shell: "/etc/init.d/weblogic start"
+#      async: 10
+#      poll: 0
+
+# Source Bash
+#    - name: Source Bash Profile
+#      shell: "source /o/y/z/.bash_profile"
+#      async: 10
+#      poll: 0
+
