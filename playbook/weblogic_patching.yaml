@@ -1,0 +1,90 @@
+#################################################################
+# Description:  Playbook to check for java version, backup    ###
+#               file, edit file, kill service, and start      ###
+#               service                                       ###
+# Enviroment:   Dev & Test                                    ###
+# Version:      1                                             ###
+# Filename:     weblogic_java_patching.yaml                   ###
+#################################################################
+
+
+# Comment out this section if using test_web.yaml to call this play book
+# start
+---
+- hosts: dt
+#  vars:
+  tasks:
+# end of comment section
+
+# Check pre-requirements of java and weblogic is installed
+    - name: Check Latest WebLogic Exists
+      stat:
+        path: /opt/weblogic/{{ latest_weblogic }}
+      register: weblogic_file_details
+
+    - debug:
+        msg: "Latest WebLogic Pre-Requirements Met"
+      when: weblogic_file_details.stat.exists and weblogic_file_details.stat.isdir == true
+
+    - debug:
+        msg: "Latest WebLogic Doesn't Exist!!!"
+      when: weblogic_file_details.stat.exists == false 
+
+# Make Backups of files that will be changed if new java version number is not present in file
+    - name: get time
+      shell: date +%Y%m%d-%H%M%S
+      register: backuptime
+
+    - name: Backup setDomainEnv.sh due for WebLogic Version
+      copy:
+        src: /o/y/zowner/domain/{{ zowner_DOMAIN}}/bin/setDomainEnv.sh
+        dest: /o/y/zowner/domain/{{zowner_DOMAIN}}/bin/setDomainEnv.sh_{{backuptime.stdout}}
+        remote_src: yes
+        mode: 0755
+      when: weblogic_file_details.stat.exists
+
+
+# Change Java version in: .bash_profile, start_dersy.sh, and setDomainEnv.sh
+# Change WebLogic version in setDomainEnv.sh
+# Env:  Development & Testing
+
+    - name: Edit setDomainEnv.sh WL_HOME
+      replace:
+        path: /o/y/zowner/domain/{{ zowner_DOMAIN}}//bin/setDomainEnv.sh
+        regexp: '{{ current_weblogic }}'
+        replace: '{{ latest_weblogic }}'
+      when: weblogic_file_details.stat.exists
+
+# Kill WebLogic
+    - name: Check if kill_weblogic.sh exists
+      stat:
+        path: /o/y/zowner/scripts/kill_weblogic.sh
+      register: kweblogic_script
+
+    - name: Copy over Kill_weblogic.sh
+      copy:
+        src: /etc/ansible/scripts/kill_weblogic.sh
+        dest: /o/y/zowner/scripts/kill_weblogic.sh
+        owner: zowner
+        group: zowner
+        mode: 0755
+      when: kweblogic_script.stat.exists == false 
+
+    - name: kill weblogic
+      shell: "bash /o/y/zowner/scripts/kill_weblogic.sh"
+      async: 10
+      poll: 0
+      when: kweblogic_script.stat.exists == true
+
+# Start WebLogic
+#    - name: start weblogic
+#      shell: "(bash /o/y/zowner/domain/{{zowner_DOMAIN}}/startWebLogic.sh &)"
+#      async: 10
+#      poll: 0
+
+# Delete Scripts used
+    - name: Delete Kill WebLogic Script
+      file:
+        path: /o/y/zowner/scripts/kill_weblogic.sh
+        state: absent
+
