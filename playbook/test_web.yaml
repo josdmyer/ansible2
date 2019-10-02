@@ -11,9 +11,9 @@
 - hosts: dt
   tasks:
 
-    - name: include edit
+    - name: Run Edit Playbook
       include: weblogic_java_patching.yaml
 
-    - name: include restore
+    - name: Run Restore Playbook
       include: restore_web.yaml
 
